@@ -134,7 +134,7 @@ Similarly, in JSON:
         }
     ],
     "totals": {
-        "ratio": 1,
+                "ratio": 1,
                 "successes": 100,
                 "failures": 0,
                 "total_run_time": 0.5611372,

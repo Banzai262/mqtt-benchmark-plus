@@ -62,13 +62,12 @@ func (c *PublisherClient) Run(res chan *RunResults) {
 	ctr := 0
 
 	ram, _ := mem.VirtualMemory()
-	tmp, _ := cpu.Percent(0, false)
+	tmp, _ := cpu.Percent(0, false)	// to initiate CPU usage measurements
 
-	started := time.Now()
 
 	// start generator
 	msgs := c.genMessagesMqttV2()
-	started = time.Now()
+	started := time.Now()
 	// start publisher
 	go c.pubMessagesMqttV2(msgs, pubMsgsMqtt, donePub)
 
@@ -84,7 +83,7 @@ func (c *PublisherClient) Run(res chan *RunResults) {
 
 				ctr++
 				if ctr%50 == 0 {
-					tmp, _ = cpu.Percent(0, false) // c'était setter à 1 seconde, ça chiait toute
+					tmp, _ = cpu.Percent(0, false)
 					cpuUsage = append(cpuUsage, tmp[0])
 				}
 				ramUsage = append(ramUsage, ram.UsedPercent)
