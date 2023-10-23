@@ -5,7 +5,7 @@ A simple MQTT (broker) benchmarking tool.
 Installation:
 
 ```sh
-go install github.com/krylovsk/mqtt-benchmark@main
+go install github.com/banzai262/mqtt-benchmark-plus@main
 ```
 
 The tool supports multiple concurrent clients, configurable message size, etc:
