@@ -1,5 +1,4 @@
-MQTT benchmarking tool
-=========
+# MQTT benchmarking tool
 
 A simple MQTT (broker) benchmarking tool.
 
@@ -16,16 +15,20 @@ $ ./mqtt-benchmark -h
 Usage of ./mqtt-benchmark:
   -broker string
     	MQTT broker endpoint as scheme://host:port (default "tcp://localhost:1883")
+  -broker-pid string
+        PID of the process running the MQTT broker (Linux only) (default: 0, which means ignore this)
   -broker-ca-cert string
     	Path to broker CA certificate in PEM format
   -client-cert string
     	Path to client certificate in PEM format
   -client-key string
     	Path to private clientKey in PEM format
-  -client-prefix string
-    	MQTT client id prefix (suffixed with '-<client-num>' (default "mqtt-benchmark")
-  -clients int
-    	Number of clients to start (default 10)
+  -topic-count int
+        Number of topic to publish messages on (default: 10)
+  -publishers int
+    	Number of publishers per topic to start (default: 1 per topic)
+  -subscribers
+        Number of subscribers per topic to start (default: 1 per topic)
   -count int
     	Number of messages to send per client (default 100)
   -format string
@@ -45,7 +48,7 @@ Usage of ./mqtt-benchmark:
   -ramp-up-time int
     	Time in seconds to generate clients by default will not wait between load request
   -size int
-    	Size of the messages payload (bytes) (default 100)
+    	Size of the messages payload (bytes) (default 0)
   -topic string
     	MQTT topic for outgoing messages (default "/test")
   -username string
@@ -61,28 +64,29 @@ Two output formats supported: human-readable plain text and JSON.
 Example use and output:
 
 ```sh
-> mqtt-benchmark --broker tcp://broker.local:1883 --count 100 --size 100 --clients 100 --qos 2 --format text
+> mqtt-benchmark --broker tcp://broker.local:1883 --count 100 --size 100 --topic-count 100 --qos 2 --format text
 ....
 
 ======= CLIENT 27 =======
-Ratio:               1 (100/100)
-Runtime (s):         16.396
-Msg time min (ms):   9.466
-Msg time max (ms):   1880.769
-Msg time mean (ms):  150.193
-Msg time std (ms):   201.884
-Bandwidth (msg/sec): 6.099
+Ratio:               1.000 (1000/1000)
+Bandwidth (msg/sec): 64383.209
+CPU Usage (percent): 40.62
+RAM Usage (percent): 37.00
 
 ========= TOTAL (100) =========
-Total Ratio:                 1 (10000/10000)
-Total Runime (sec):          16.398
-Average Runtime (sec):       15.514
-Msg time min (ms):           7.766
-Msg time max (ms):           2034.076
-Msg time mean mean (ms):     140.751
-Msg time mean std (ms):      13.695
-Average Bandwidth (msg/sec): 6.761
-Total Bandwidth (msg/sec):   676.112
+Total Ratio:                 1.000 (1000/1000)
+Total Runtime (sec):         0.028
+Time measurements (ms):      [0, 3, 15, 1, 0,...]
+Msg time min (ms):           1.000
+Msg time max (ms):           9.000
+Msg time mean (ms):             5.003
+Msg time std (ms):              1.631
+Average Bandwidth Per Publisher (msg/sec): 46986.276
+Total Bandwidth Publishers (msg/sec):   469862.758
+Average Bandwidth Per Subscriber (msg/sec): 4268.882
+Total Bandwidth Subscribers (msg/sec):   42688.821
+Average CPU Usage (percent): 6.88
+Average RAM Usage (percent): 37.00
 ```
 
 With payload specified:
@@ -120,28 +124,32 @@ Similarly, in JSON:
     runs: [
         ...
         {
-            "id": 61,
+            "id": "0-0",
             "successes": 100,
             "failures": 0,
-            "run_time": 16.142762197,
-            "msg_tim_min": 12.798859,
-            "msg_time_max": 1273.9553740000001,
-            "msg_time_mean": 147.66799521,
-            "msg_time_std": 152.08244221156286,
-            "msgs_per_sec": 6.194726700402251
+            "run_time": 0.5554133,
+            "msgs_per_sec": 180.04610260503304,
+            "CpuUsage": 0,      // 0 means to measurements for this metric were disabled
+            "memory_usage": 0   // 0 means to measurements for this metric were disabled
         }
     ],
     "totals": {
-        "successes": 10000,
-        "failures": 0,
-        "total_run_time": 16.153741746,
-        "avg_run_time": 15.14702422494,
-        "msg_time_min": 7.852086000000001,
-        "msg_time_max": 1285.241845,
-        "msg_time_mean_avg": 136.4360292677,
-        "msg_time_mean_std": 12.816965054355633,
-        "total_msgs_per_sec": 681.0374046459865,
-        "avg_msgs_per_sec": 6.810374046459865
+        "ratio": 1,
+                "successes": 100,
+                "failures": 0,
+                "total_run_time": 0.5611372,
+                "avg_run_time": 0.5554133,
+                "time_measurements": [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,1,0,1,0],
+                "msg_time_min": 0,
+                "msg_time_max": 1,
+                "msg_time_mean_avg": 0.17391304347826086,
+                "msg_time_mean_std": 0.38755338788158983,
+                "total_msgs_per_sec_pub": 180.04610260503304,
+                "avg_msgs_per_sec_pub": 180.04610260503304,
+                "total_msgs_per_sec_sub": 179.1635991686809,
+                "avg_msgs_per_sec_sub": 179.1635991686809,
+                "avg_cpu_usage": 0,
+                "avg_memory_usage": 0
     }
 }
 ```
