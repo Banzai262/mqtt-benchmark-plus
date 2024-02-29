@@ -6,9 +6,14 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/montanaflynn/stats"
+	// "github.com/sfreiberg/simplessh"
+	"github.com/eugenmayer/go-sshclient/sshwrapper"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
@@ -21,7 +26,6 @@ type PublisherClient struct {
 	ID              string
 	ClientID        string
 	BrokerURL       string
-	BrokerPID       int
 	BrokerUser      string
 	BrokerPass      string
 	MsgTopic        string
@@ -34,6 +38,9 @@ type PublisherClient struct {
 	TLSConfig       *tls.Config
 	MessageInterval int
 	Protocol        string
+	RemoteUser      string
+	RemotePwd       string
+	Remote          bool
 }
 
 type Pair[T, U any] struct {
@@ -60,10 +67,25 @@ func (c *PublisherClient) Run(res chan *RunResults) {
 	cpuUsage := []float64{}
 	ramUsage := []float64{}
 	ctr := 0
+	url, _ := extractHostnameFromURL(c.BrokerURL)
 
 	ram, _ := mem.VirtualMemory()
-	tmp, _ := cpu.Percent(0, false)	// to initiate CPU usage measurements
+	tmp, _ := cpu.Percent(0, false) // to initiate CPU usage measurements
 
+	// Oold ssh client that used to work
+	// sshClient, err := simplessh.ConnectWithPassword(url, c.RemoteUser, c.RemotePwd)
+	// if err != nil {
+	// 	log.Printf("error when creating ssh client: %v", err.Error())
+	// }
+	// defer sshClient.Close()
+
+	sshApi, err := sshwrapper.DefaultSshApiSetup(url, 22, c.RemoteUser, "")
+	sshApi.Password = c.RemotePwd
+	err = sshApi.DefaultSshPasswordSetup()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sshApi.Close()
 
 	// start generator
 	msgs := c.genMessagesMqttV2()
@@ -83,10 +105,19 @@ func (c *PublisherClient) Run(res chan *RunResults) {
 
 				ctr++
 				if ctr%50 == 0 {
-					tmp, _ = cpu.Percent(0, false)
-					cpuUsage = append(cpuUsage, tmp[0])
+					if c.Remote {
+						// cpu, _ := getRemoteCPUUsage(*sshApi)
+						// memory, _ := getRemoteMemoryUsage(*sshApi)
+						// cpuUsage = append(cpuUsage, cpu)
+						// ramUsage = append(ramUsage, memory)
+						go getRemoteCPUUsage(*sshApi, &cpuUsage)
+						go getRemoteMemoryUsage(*sshApi, &ramUsage)
+					} else {
+						tmp, _ = cpu.Percent(0, false)
+						cpuUsage = append(cpuUsage, tmp[0])
+						ramUsage = append(ramUsage, ram.UsedPercent)
+					}
 				}
-				ramUsage = append(ramUsage, ram.UsedPercent)
 
 			}
 		case t := <-donePub:
@@ -110,6 +141,37 @@ func (c *PublisherClient) Run(res chan *RunResults) {
 			return
 		}
 	}
+}
+
+func extractHostnameFromURL(inputURL string) (string, error) {
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		return "", err
+	}
+
+	// The hostname could be an IP address or a domain name
+	hostname := parsedURL.Hostname()
+	return hostname, nil
+}
+
+// func getRemoteCPUUsage(sshClient simplessh.Client) (float64, error) {
+func getRemoteCPUUsage(sshClient sshwrapper.SshApi, usage *[]float64) {
+	// cpu, _ := sshClient.Exec("top -bn1 | awk '/Cpu/ {print 100 - $8}'")
+	cpu, _, _ := sshClient.Run("top -bn1 | awk '/Cpu/ {print 100 - $8}'")
+	cpuUsage, _ := strconv.ParseFloat(strings.TrimSpace(string(cpu)), 64)
+	*usage = append(*usage, cpuUsage)
+
+	// return cpuUsage, nil
+}
+
+// func getRemoteMemoryUsage(sshClient simplessh.Client) (float64, error) {
+func getRemoteMemoryUsage(sshClient sshwrapper.SshApi, usage *[]float64) {
+	// mem, _ := sshClient.Exec("free | awk '/Mem/ {print $3/ $2 * 100}'")
+	mem, _, _ := sshClient.Run("free | awk '/Mem/ {print $3/ $2 * 100}'")
+	memUsage, _ := strconv.ParseFloat(strings.TrimSpace(string(mem)), 64)
+	*usage = append(*usage, memUsage)
+
+	// return memUsage, nil
 }
 
 // generate all messages and add them to a list

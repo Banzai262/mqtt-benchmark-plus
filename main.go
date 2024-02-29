@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/montanaflynn/stats"
@@ -65,7 +66,6 @@ type JSONResults struct {
 func main() {
 	var (
 		broker              = flag.String("broker", "tcp://localhost:1883", "MQTT broker endpoint as scheme://host:port")
-		brokerPID           = flag.Int("broker-pid", 0, "PID of the process running the broker")
 		topic               = flag.String("topic", "/test", "MQTT topic for outgoing messages")
 		payload             = flag.String("payload", "", "MQTT message payload. If empty, then payload is generated based on the size parameter")
 		username            = flag.String("username", "", "MQTT client username (empty if auth disabled)")
@@ -80,15 +80,22 @@ func main() {
 		format              = flag.String("format", "text", "Output format: text|json")
 		quiet               = flag.Bool("quiet", false, "Suppress logs while running")
 		//clientPrefix         = flag.String("client-prefix", "mqtt-benchmark", "MQTT client id prefix (suffixed with '-<client-num>'")
-		clientCert           = flag.String("client-cert", "", "Path to client certificate in PEM format")
-		clientKey            = flag.String("client-key", "", "Path to private clientKey in PEM format")
-		brokerCaCert         = flag.String("broker-ca-cert", "", "Path to broker CA certificate in PEM format")
-		insecure             = flag.Bool("insecure", false, "Skip TLS certificate verification")
-		rampUpTimeInSec      = flag.Int("ramp-up-time", 0, "Time in seconds to generate clients by default will not wait between load request")
-		messageIntervalInSec = flag.Int("message-interval", 1000, "Time interval in seconds to publish message")
+		clientCert      = flag.String("client-cert", "", "Path to client certificate in PEM format")
+		clientKey       = flag.String("client-key", "", "Path to private clientKey in PEM format")
+		brokerCaCert    = flag.String("broker-ca-cert", "", "Path to broker CA certificate in PEM format")
+		insecure        = flag.Bool("insecure", false, "Skip TLS certificate verification")
+		rampUpTimeInSec = flag.Int("ramp-up-time", 0, "Time in seconds to generate clients by default will not wait between load request")
+		messageInterval = flag.Int("message-interval", 1000, "Time interval in milliseconds to publish message")
+		remoteUser      = flag.String("remote-user", "", "Username of the remote host where the broker is running")
+		remotePwd       = flag.String("remote-pwd", "", "Password of the remote host where the broker is running")
 	)
 
 	flag.Parse()
+	remote := false
+	if !strings.Contains(*broker, "localhost") {
+		remote = true
+	}
+
 	if *topicCount < 1 {
 		log.Fatalf("Invalid arguments: number of clients should be >= 1, given: %v", *topicCount)
 	}
@@ -163,7 +170,6 @@ func main() {
 				ID:              fmt.Sprintf("%v-%v", t, i),
 				ClientID:        fmt.Sprintf("publisher-%v-%v-%v", t, i, time.Now().UTC().UnixMilli()), // mqtt-benchmark-<topic number>-<publisher number>
 				BrokerURL:       *broker,
-				BrokerPID:       *brokerPID,
 				BrokerUser:      *username,
 				BrokerPass:      *password,
 				MsgTopic:        *topic + "-" + strconv.Itoa(t),
@@ -174,7 +180,10 @@ func main() {
 				Quiet:           *quiet,
 				WaitTimeout:     time.Duration(*wait) * time.Millisecond,
 				TLSConfig:       tlsConfig,
-				MessageInterval: *messageIntervalInSec,
+				MessageInterval: *messageInterval,
+				RemoteUser:      *remoteUser,
+				RemotePwd:       *remotePwd,
+				Remote:          remote,
 			}
 			go c.Run(resCh)
 			time.Sleep(time.Duration(sleepTime*1000) * time.Millisecond)
@@ -191,13 +200,13 @@ func main() {
 	for i := 0; i < *subscribersPerTopic**topicCount; i++ {
 		subThroughputs[i] = <-subTpChannel
 	}
-	
+
 	for _, arrayPointer := range latenciesPointers {
 		latencies = append(latencies, *arrayPointer...)
 	}
-	
+
 	totals := calculateTotalResults(results, totalTime, *publishersPerTopic**topicCount, latencies, subThroughputs)
-	
+
 	// print stats
 	printResults(results, totals, *format)
 }
@@ -279,7 +288,6 @@ func printResults(results []*RunResults, totals *TotalResults, format string) {
 		fmt.Printf("========= TOTAL (%d) =========\n", len(results))
 		fmt.Printf("Total Ratio:                 %.3f (%d/%d)\n", totals.Ratio, totals.Successes, totals.Successes+totals.Failures)
 		fmt.Printf("Total Runtime (sec):         %.3f\n", totals.TotalRunTime)
-		// fmt.Printf("Average Runtime (sec):       %.3f\n", totals.AvgRunTime)
 		fmt.Printf("Time measurements (ms): 	%.3f", totals.TimeMeasurements)
 		fmt.Printf("Msg time min (ms):           %.3f\n", totals.MsgTimeMin)
 		fmt.Printf("Msg time max (ms):           %.3f\n", totals.MsgTimeMax)

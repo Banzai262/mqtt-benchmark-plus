@@ -2,21 +2,21 @@
 
 A simple MQTT (broker) benchmarking tool.
 
-Installation:
+Installation by building from source or with this command:
 
 ```sh
 go install github.com/banzai262/mqtt-benchmark-plus@main
 ```
 
-The tool supports multiple concurrent clients, configurable message size, etc:
+The tool supports multiple concurrent clients, configurable message size, etc. If the broker address doesn't include `localhost`
+the user can set `remote-user` and `remote-pwd` to monitor CPU and RAM usage from the broker host. Won't monitor if left empty.
+Has no effect if the broker is on localhost.
 
 ```sh
 $ ./mqtt-benchmark -h
 Usage of ./mqtt-benchmark:
   -broker string
     	MQTT broker endpoint as scheme://host:port (default "tcp://localhost:1883")
-  -broker-pid string
-        PID of the process running the MQTT broker (Linux only) (default: 0, which means ignore this)
   -broker-ca-cert string
     	Path to broker CA certificate in PEM format
   -client-cert string
@@ -36,7 +36,7 @@ Usage of ./mqtt-benchmark:
   -insecure
     	Skip TLS certificate verification
   -message-interval int
-    	Time interval in seconds to publish message (default 1)
+    	Time interval in milliseconds to publish message (default 1)
   -password string
     	MQTT client password (empty if auth disabled)
   -payload string
@@ -55,9 +55,13 @@ Usage of ./mqtt-benchmark:
     	MQTT client username (empty if auth disabled)
   -wait int
     	QoS 1 wait timeout in milliseconds (default 60000)
+  -remote-user string
+        Username to connect to the broker host machine via SSH (default "")
+  -remote-pwd string
+        Password to connect to the broker host machine via SSH (default "")
 ```
 
-> NOTE: if `count=1` or `clients=1`, the sample standard deviation will be returned as `0` (convention due to the [lack of NaN support in JSON](https://tools.ietf.org/html/rfc4627#section-2.4))
+> NOTE: if `count=1` or there is 1 total publisher, the sample standard deviation will be returned as `0` (convention due to the [lack of NaN support in JSON](https://tools.ietf.org/html/rfc4627#section-2.4))
 
 Two output formats supported: human-readable plain text and JSON.
 
@@ -129,8 +133,8 @@ Similarly, in JSON:
             "failures": 0,
             "run_time": 0.5554133,
             "msgs_per_sec": 180.04610260503304,
-            "CpuUsage": 0,      // 0 means to measurements for this metric were disabled
-            "memory_usage": 0   // 0 means to measurements for this metric were disabled
+            "CpuUsage": 10,
+            "memory_usage": 10 
         }
     ],
     "totals": {

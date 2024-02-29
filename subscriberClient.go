@@ -56,7 +56,7 @@ func (c *SubscriberClient) consume(res chan float64, latencies *[]uint64) {
 				}
 				timer.Reset(timeout)
 				ctr++
-				if float64(ctr) >= float64(c.TopicMsgCount)*0.99 { // for some reason the ctr sometimes goes up to just below the expected count
+				if float64(ctr) >= float64(c.TopicMsgCount) {
 					duration := time.Since(startTime)
 					res <- float64(ctr) / duration.Seconds()
 					if !c.Quiet {
